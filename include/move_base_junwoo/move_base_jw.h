@@ -148,16 +148,64 @@ namespace move_base_jw{
         */
         void wakePlanner(const ros::TimerEvent& event);
 
-
-        //parameters
+        // Parameters
         tf2_ros::Buffer& tf_;
 
-        MoveBaseActionServer* as_;
+        MoveBaseActionServer* as_;  
 
         boost::shared_ptr<nav_core::BaseLocalPlanner> tc_;
         costmap_2d::Costmap2DROS *planner_costmap_ros_, *controller_costmap_ros_;
- 
+
+        boost::shared_ptr<nav_core::BaseGlobalPlanner> planner_;
+        std::string robot_base_frame_, global_frame_;
+
+        std::vector<boost::shared_ptr<nav_core::RecoveryBehavior> > recovery_behaviors_;
+        std::vector<std::string> recovery_behavior_names_;
+        unsigned int recovery_index_;
+
+        geometry_msgs::PoseStamped global_pose_;
+        double planner_frequency_, controller_frequency_, inscribed_radius_, circumscribed_radius_;
+        double planner_patience_, controller_patience_;
+        int32_t max_planning_retries_;
+        uint32_t t_planning_retries_;
+        double conservative_reset_dist_, clearing_radius_;
+        ros::Publisher current_goal_pub_, vel_pub_, action_goal_pub_, recovery_status_pub_;
+        ros::Subscriber goal_sub_;
+        ros::ServiceServer make_plan_srv_, clear_costmaps_srv_;
+        bool shutdown_costmaps_, clearing_rotation_allowed_, recovery_behavior_enabled_;
+        bool make_plan_clear_costmap_, make_plan_add_unreachable_goal_;
+        double oscillation_timeout_, oscillation_distance_;
+
+        MoveBaseState state_;
+        RecoveryTrigger recovery_trigger_;
+
+        ros::Time last_valid_plan_, last_valid_control_, last_oscillation_reset_;
+        geometry_msgs::PoseStamped oscillation_pose_;
+        pluginlib::ClassLoader<nav_core::BaseGlobalPlanner> bgp_loader_;
+        pluginlib::ClassLoader<nav_core::BaseLocalPlanner> blp_loader_;
+        pluginlib::ClassLoader<nav_core::RecoveryBehavior> recovery_loader_;
+
+        // set up plan triple buffer
+        std::vector<geometry_msgs::PoseStamped>* planner_plan_;
+        std::vector<geometry_msgs::PoseStamped>* latest_plan_;
+        std::vector<geometry_msgs::PoseStamped>* controller_plan_;
+
+        // set up the planner's thread
+        bool runPlanner_;
+        boost::recursive_mutex planner_mutex_;
+        boost::condition_variable_any planner_cond_;
+        geometry_msgs::PoseStamped planner_goal_;
+        boost::thread* planner_thread_;
+
+
+        boost::recursive_mutex configuration_mutex_;
+        dynamic_reconfigure::Server<move_base::MoveBaseConfig>* dsrv_;
+
+        void reconfigureCB(move_base::MoveBaseConfig& config, uint32_t level);
+
+        move_base::MoveBaseConfig last_config_;
+        move_base::MoveBaseConfig default_config_;
+        bool setup_, p_freq_change_, c_freq_change_;
+        bool new_global_plan_;
    };
-
-
-}
+};
